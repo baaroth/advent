@@ -1,5 +1,7 @@
 package advent.y2021;
 
+import advent.Debug;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
@@ -12,6 +14,7 @@ import static java.nio.charset.Charset.defaultCharset;
 import static java.util.stream.Collectors.joining;
 
 public class Ex7 {
+	private static final Debug DEBUG = Debug.OFF;
 
 	private final Horizontals horizontals;
 	Ex7(Horizontals horizontals) {
@@ -26,7 +29,7 @@ public class Ex7 {
 					.map(Integer::parseInt)
 					.forEach(horizontals::register);
 		}
-		//System.out.println(horizontals);
+		DEBUG.trace("%s%n", horizontals);
 		Ex7 ex = new Ex7(horizontals);
 		MinFuel minFuel = ex.findMinFuel2();
 		System.out.printf("min fuel %s", minFuel);
@@ -50,11 +53,11 @@ public class Ex7 {
 		int minIdx = horizontals.minIdx;
 		final int lastIdx = horizontals.maxIdx;
 		Move current = first;
-		System.out.printf("findMin> @%d: %d, next: %s%n", minIdx, current.totalFuel(), current.nextOffset());
+		DEBUG.trace("findMin> @%d: %d, next: %s%n", minIdx, current.totalFuel(), current.nextOffset());
 		while (current.nextOffset().index() <= lastIdx) {
 			Offset toEval = current.nextOffset();
 			current = horizontals.evalMove(toEval);
-			//System.out.printf("findMin> @%d: %d, next: %s%n", toEval.index(), current.totalFuel(), current.nextOffset());
+			DEBUG.trace("findMin> @%d: %d, next: %s%n", toEval.index(), current.totalFuel(), current.nextOffset());
 			if (current.totalFuel() < minQty) {
 				minQty = current.totalFuel();
 				minIdx = toEval.index();
@@ -126,7 +129,7 @@ public class Ex7 {
 				if (crabs > 0) {
 					int distance = i - offset.index();
 					total += crabs * distance;
-					//System.out.printf("evalMove %d> @%d: %d crabs moving %d (Σ=%d)%n", offset.index, i, crabs, distance, total);
+					DEBUG.trace("evalMove %d> @%d: %d crabs moving %d (Σ=%d)%n", offset.index, i, crabs, distance, total);
 				}
 			}
 			return new Move(total, offset.next(values[offset.index()]));

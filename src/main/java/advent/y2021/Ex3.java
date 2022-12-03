@@ -1,6 +1,7 @@
 package advent.y2021;
 
 import advent.Binary;
+import advent.Debug;
 
 import java.io.IOException;
 import java.net.URI;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.PrimitiveIterator;
 
 public class Ex3 {
+	private static final Debug DEBUG = Debug.ON;
 
 	private final List<String> lines;
 	private Ex3(List<String> lines) {
@@ -20,8 +22,8 @@ public class Ex3 {
 	public static void main(String[] args) throws IOException, URISyntaxException {
 		URI input = Ex3.class.getResource("ex3.input.txt").toURI();
 		Ex3 ex = new Ex3(Files.readAllLines(Path.of(input)));
-		System.out.println(ex.powerConsumption());
-		System.out.println(ex.lifeSupportRating());
+		System.out.println("pow=" + ex.powerConsumption());
+		System.out.println("life=" + ex.lifeSupportRating());
 	}
 
 	private int powerConsumption() {
@@ -30,7 +32,7 @@ public class Ex3 {
 		Stats stats = Stats.of(lines);
 		Binary gamma = gamma(stats);
 		Binary epsilon = epsilon(stats);
-		System.out.printf("γ=%s ε=%s%n", gamma, epsilon);
+		DEBUG.trace("γ=%s ε=%s%n", gamma, epsilon);
 
 		return gamma.val() * epsilon.val();
 	}
@@ -38,7 +40,7 @@ public class Ex3 {
 	private int lifeSupportRating() {
 		Binary o2 = o2GeneratorRating();
 		Binary co2 = co2ScrubberRating();
-		System.out.printf("O2=%s CO2=%s%n", o2, co2);
+		DEBUG.trace("O2=%s CO2=%s%n", o2, co2);
 		return o2.val() * co2.val();
 	}
 

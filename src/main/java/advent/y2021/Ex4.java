@@ -1,5 +1,7 @@
 package advent.y2021;
 
+import advent.Debug;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
@@ -19,6 +21,7 @@ import java.util.stream.IntStream;
 import static java.nio.charset.Charset.defaultCharset;
 
 public class Ex4 {
+	private static final Debug DEBUG = Debug.ON;
 
 	private String draws;
 	private final List<Grid> grids = new ArrayList<>();
@@ -73,7 +76,7 @@ public class Ex4 {
 		public void accept(Grid grid) {
 			if (grid.mark(value) == State.BINGO) {
 				lastBingo = grid;
-				System.out.printf("%d » BINGO #%d%n", value, grid.id);
+				DEBUG.trace("%d → BINGO #%d%n", value, grid.id);
 				bingoed.add(grid.id);
 			}
 		}

@@ -1,5 +1,7 @@
 package advent.y2021;
 
+import advent.Debug;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
@@ -15,6 +17,7 @@ import static java.nio.charset.Charset.defaultCharset;
 import static java.util.stream.Collectors.joining;
 
 public class Ex6 {
+	private static final Debug DEBUG = Debug.ON;
 
 	private final List<Jellyfish> fishes = new ArrayList<>();
 	private final long[] populations = new long[9];
@@ -29,7 +32,7 @@ public class Ex6 {
 					.forEach(ex.fishes::add);*/
 					.forEach(idx -> ++ex.populations[idx]);
 		}
-		System.out.printf("initial: %s%n", ex.print());
+		DEBUG.trace("initial: %s%n", ex.print());
 		final int stop = 256;
 		for (int cycle = 1; cycle <= stop; ++cycle) {
 			ex.tick(cycle);
@@ -45,13 +48,13 @@ public class Ex6 {
 	private void tick(int cycle) {
 		/*List<Jellyfish> newborns = fishes.stream().flatMap(Jellyfish::tick).toList();
 		fishes.addAll(newborns);
-		System.out.printf("cycle #%02d: %s%n", cycle, print());*/
+		DEBUG.trace("cycle #%02d: %s%n", cycle, print());*/
 		long hatching = populations[0];
 		System.arraycopy(populations, 1, populations, 0, populations.length - 1);
 		populations[Jellyfish.RESET] += hatching;
 		populations[Jellyfish.INITIAL] = hatching;
 		if (cycle % 50 == 0) {
-			System.out.printf("cycle #%d: %s%n", cycle, print());
+			DEBUG.trace("cycle #%d: %s%n", cycle, print());
 		}
 	}
 
