@@ -14,7 +14,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 public class Ex10 {
-    private static final Debug DEBUG = Debug.ON;
+    private static final Debug DEBUG = Debug.OFF;
 
     private static final IntBinaryOperator NOOP = (c, x) -> x;
     /**
@@ -24,14 +24,12 @@ public class Ex10 {
     private static final IntBinaryOperator PAD = NOOP;
 
     public static void main(String[] args) throws IOException, URISyntaxException {
-        URI input = Ex9.class.getResource("ex10.input.txt").toURI();
-        final Cpu cpu = new Cpu();
-        long totalScore = Files.readAllLines(Path.of(input)).stream()
+        URI input = Ex10.class.getResource("ex10.input.txt").toURI();
+        final Screen screen = new Screen();
+        Files.readAllLines(Path.of(input)).stream()
                 .flatMap(Ex10::parse)
-                .flatMapToLong(cpu::tick)
-                .limit(CycleOfInterest.LAST)
-                .reduce(0, Long::sum);
-        System.out.println(totalScore);
+                .forEach(screen::tick);
+        System.out.println(screen);
     }
 
     private static Stream<IntBinaryOperator> parse(String instruction) {
@@ -42,14 +40,16 @@ public class Ex10 {
     }
 
     private static class Cpu {
-        private final CycleOfInterest reporter = new CycleOfInterest();
         private int cycle = 0;
         private int x = 1;
 
-        public LongStream tick(IntBinaryOperator instruction) {
+        private int clock() {
+            return cycle;
+        }
+        public int tick(IntBinaryOperator instruction) {
             ++cycle;
             x = instruction.applyAsInt(cycle, x);
-            return reporter.strength(cycle, x);
+            return x;
         }
     }
 
@@ -67,6 +67,52 @@ public class Ex10 {
                 return LongStream.of(score);
             }
             return LongStream.empty();
+        }
+    }
+
+    private static class Screen {
+        private static final int WIDTH = 40;
+        private final Cpu cpu = new Cpu();
+        private final char[] pixels = new char[6 * WIDTH];
+        private int spriteMiddle;
+        Screen() {
+            spriteMiddle = cpu.x;
+        }
+
+        public void tick(IntBinaryOperator instruction) {
+            int currentlyDrawing = cpu.clock();
+            pixels[currentlyDrawing] = spriteMatch(currentlyDrawing) ? '#' : '.';
+            spriteMiddle = cpu.tick(instruction);
+            DEBUG.trace("cycle %d: %s%n", cpu.clock(), this);
+        }
+
+        private boolean spriteMatch(int currentlyDrawing) {
+            int linePos = currentlyDrawing % WIDTH;
+            return Math.abs(linePos - spriteMiddle) <= 1;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder s = new StringBuilder();
+            for (int i = 0; i < pixels.length; ++i) {
+                if (i % WIDTH == 0) s.append('\n');
+                char pixel;
+                if (i == spriteMiddle - 1) {
+                    pixel = switch (pixels[i]) {
+                        case '.' -> '¿';
+                        case '#' -> '«';
+                        default -> '<';
+                    };
+                } else if (i == spriteMiddle + 1) {
+                    pixel = switch (pixels[i]) {
+                        case '.' -> '?';
+                        case '#' -> '»';
+                        default -> '>';
+                    };
+                } else pixel = pixels[i];
+                s.append(pixel);
+            }
+            return s.toString();
         }
     }
 
