@@ -8,17 +8,22 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.function.UnaryOperator;
 
 public class Ex11 {
 
-    private static final Debug DEBUG = Debug.ON;
+    private static final Debug DEBUG = Debug.OFF;
 
+    private final Set<BigInteger> candidateDivisors = new TreeSet<>();
     private final List<Monkey> monkeys = new ArrayList<>();
     private Monkey.Builder monkeyBuilder;
+
+    private BigInteger computePpcm() {
+        DEBUG.trace("cadidate currentDivisors: %s%n", candidateDivisors);
+        return candidateDivisors.stream()
+                .reduce(BigInteger.ONE, BigInteger::multiply);
+    }
 
     private void load(String input) {
         if (input.isEmpty()) return;
@@ -32,13 +37,16 @@ public class Ex11 {
         } else if (input.startsWith("  Operation: new = old ")) {
             monkeyBuilder.withStressEvo(input.substring(23));
         } else if (input.startsWith("  Test: divisible by ")) {
-            monkeyBuilder.withGiveDivisor(input.substring(21));
+            BigInteger div = new BigInteger(input.substring(21));
+            monkeyBuilder.withGiveDivisor(div);
+            candidateDivisors.add(div);
         } else if (input.startsWith("    If true: throw to monkey ")) {
             monkeyBuilder.withGiveTruthy(input.substring(29));
         } else if (input.startsWith("    If false: throw to monkey ")) {
-            monkeyBuilder.withGiveFalsy(input.substring(30));
-            // last instruction by contract
-            monkeys.add(monkeyBuilder.build());
+            Monkey m = monkeyBuilder.withGiveFalsy(input.substring(30))
+                    // last instruction by contract
+                    .build();
+            monkeys.add(m);
             monkeyBuilder = null;
         } else {
             throw new UnsupportedOperationException("unrecognized part: " + input);
@@ -49,16 +57,19 @@ public class Ex11 {
         Ex11 ex = new Ex11();
         URI input = ex.getClass().getResource("ex11.input.txt").toURI();
         Files.readAllLines(Path.of(input)).forEach(ex::load);
+        BigInteger ppcm = ex.computePpcm();
         DEBUG.trace("initial: %s%n", ex.monkeys);
-        for (int i = 0; i < 20; ++i) {
+        for (int i = 0; i < 10_000; ++i) {
             for (Monkey m : ex.monkeys) {
-                m.takeTurn(ex.monkeys);
+                m.takeTurn(ex.monkeys, ppcm);
             }
-            DEBUG.trace("after turn %d: %s%n", i+1, ex.monkeys);
+            if (i == 19) DEBUG.trace("20:%s%n", ex.monkeys);
+            if (i % 100 == 99) DEBUG.trace("."); // console life pulse
+            if (i % 1000 == 999) DEBUG.trace("%d:%s%n", i+1, ex.monkeys);
         }
-        
-        int max1 = -1;
-        int max2 = -1;
+        DEBUG.trace("---%n");
+        long max1 = -1;
+        long max2 = -1;
         for (Monkey m : ex.monkeys) {
             DEBUG.trace("[%d,%d] Monkey %d inspected items %d times.%n", max1, max2, m.id, m.inspected);
             if (max1 < m.inspected) {
@@ -68,12 +79,13 @@ public class Ex11 {
                 max2 = m.inspected;
             }
         }
-        System.out.printf("%d×%d=%d%n", max1, max2, max1 * max2);
+        BigInteger score = BigInteger.valueOf(max1).multiply(BigInteger.valueOf(max2));
+        System.out.printf("%d×%d=%d%n", max1, max2, score);
     }
 
     private static class Monkey {
         private final int id;
-        private int inspected;
+        private long inspected;
         private final List<Item> items;
         private final UnaryOperator<BigInteger> stressEvolution;
         private final GiveRule giveRule;
@@ -90,11 +102,11 @@ public class Ex11 {
             items.add(it);
         }
 
-        public void takeTurn(List<Monkey> all) {
+        public void takeTurn(List<Monkey> all, BigInteger ppcm) {
             if (items.isEmpty()) return;
             for (Item it : items) {
                 ++inspected;
-                giveRule.apply(it.evolve(stressEvolution), all);
+                giveRule.apply(it.evolve(stressEvolution, ppcm), all);
             }
             items.clear();
         }
@@ -140,8 +152,8 @@ public class Ex11 {
                 return this;
             }
 
-            public Builder withGiveDivisor(String giveDivisor) {
-                this.giveDivisor = new BigInteger(giveDivisor);
+            public Builder withGiveDivisor(BigInteger giveDivisor) {
+                this.giveDivisor = giveDivisor;
                 return this;
             }
 
@@ -176,8 +188,6 @@ public class Ex11 {
 
     private record Item(BigInteger stress) {
 
-        public static final BigInteger RELIEF = BigInteger.valueOf(3);
-
         static Item parse(String encoded) {
             return new Item(new BigInteger(encoded));
         }
@@ -186,8 +196,8 @@ public class Ex11 {
             return stress.mod(divisor).equals(BigInteger.ZERO);
         }
 
-        public Item evolve(UnaryOperator<BigInteger> stressEvolution) {
-            return new Item(stressEvolution.apply(stress).divide(RELIEF));
+        public Item evolve(UnaryOperator<BigInteger> stressEvolution, BigInteger ppcm) {
+            return new Item(stressEvolution.apply(stress).mod(ppcm));
         }
 
         @Override
