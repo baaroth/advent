@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -22,34 +23,19 @@ import static java.util.stream.Collectors.joining;
 
 public class Ex12 {
 
-	private static final Debug DEBUG = Debug.ON;
+	private static final Debug INFO = Debug.ON;
+	private static final Debug DEBUG = Debug.OFF;
 
 	public static void main(String[] args) throws IOException, URISyntaxException {
 		URI input = Ex12.class.getResource("ex12.input.txt").toURI();
 		Grid g = new Grid();
 		Files.readAllLines(Path.of(input)).forEach(g::load);
-		final Set<Coor> deadEnds = new HashSet<>();
-		final List<Walk> wins = new ArrayList<>();
-		Walkers walkers = Walkers.of(new Walker(g, deadEnds));
-		while (walkers.isNotEmpty()) {
-			Walkers nexts = new Walkers();
-			for (Walker w : walkers) {
-				if (w.arrived()) {
-					DEBUG.trace("DONE in %d", w.walked());
-					wins.add(w.walk);
-					continue;
-				}
-
-				nexts.addAll(w.multiStep());
-			}
-			DEBUG.trace("next round %d", nexts.size());
-			walkers = nexts;
-		}
-
-		IntSummaryStatistics stats = wins.stream()
-				.mapToInt(Walk::length)
-				.summaryStatistics();
-		System.out.printf("%d in [%d,%d]", stats.getCount(), stats.getMin(), stats.getMax());
+		int best = g.streamStarts()
+				.map(g::findBestExit)
+				.flatMapToInt(OptionalInt::stream)
+				.min()
+				.orElse(-1);
+		System.out.println("min=" + best);
 	}
 
 	private static class Walker {
@@ -58,9 +44,9 @@ public class Ex12 {
 		private final Walk walk;
 		private final Set<Coor> deadEnds;
 
-		public Walker(Grid grid, Set<Coor> deadEnds) {
+		public Walker(Grid grid, Coor start, Set<Coor> deadEnds) {
 			this.grid = grid;
-			this.current = grid.start;
+			this.current = start;
 			this.deadEnds = deadEnds;
 			walk = new Walk(current);
 		}
@@ -229,6 +215,18 @@ public class Ex12 {
 			lines.add(line);
 		}
 
+		public Stream<Coor> streamStarts() {
+			final List<Coor> starts = new ArrayList<>();
+			int y = 0;
+			for (char[] line : lines) {
+				for (int x = 0; x < len; ++x)
+					if (line[x] == 'a')
+						starts.add(new Coor(x, y));
+				++y;
+			}
+			return starts.stream();
+		}
+
 		@Override
 		public String toString() {
 			StringBuilder s = new StringBuilder();
@@ -248,6 +246,32 @@ public class Ex12 {
 		}
 		public int maxY() {
 			return lines.size() - 1;
+		}
+
+		public OptionalInt findBestExit(Coor start) {
+			DEBUG.trace("== %s ==", start);
+			final Set<Coor> deadEnds = new HashSet<>();
+			final List<Walk> wins = new ArrayList<>();
+			Walkers walkers = Walkers.of(new Walker(this, start, deadEnds));
+			while (walkers.isNotEmpty()) {
+				Walkers nexts = new Walkers();
+				for (Walker w : walkers) {
+					if (w.arrived()) {
+						DEBUG.trace("DONE in %d", w.walked());
+						wins.add(w.walk);
+						continue;
+					}
+
+					nexts.addAll(w.multiStep());
+				}
+				DEBUG.trace("next round %d", nexts.size());
+				walkers = nexts;
+			}
+			OptionalInt min = wins.stream()
+					.mapToInt(Walk::length)
+					.min();
+			INFO.trace("%s: %d", start, min.orElse(-1));
+			return min;
 		}
 	}
 
