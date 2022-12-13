@@ -58,20 +58,20 @@ public class Ex11 {
         URI input = ex.getClass().getResource("ex11.input.txt").toURI();
         Files.readAllLines(Path.of(input)).forEach(ex::load);
         BigInteger ppcm = ex.computePpcm();
-        DEBUG.trace("initial: %s%n", ex.monkeys);
+        DEBUG.trace("initial: %s", ex.monkeys);
         for (int i = 0; i < 10_000; ++i) {
             for (Monkey m : ex.monkeys) {
                 m.takeTurn(ex.monkeys, ppcm);
             }
-            if (i == 19) DEBUG.trace("20:%s%n", ex.monkeys);
-            if (i % 100 == 99) DEBUG.trace("."); // console life pulse
-            if (i % 1000 == 999) DEBUG.trace("%d:%s%n", i+1, ex.monkeys);
+            if (i == 19) DEBUG.trace("20:%s", ex.monkeys);
+            if (i % 100 == 99) DEBUG.lifePulse();
+            if (i % 1000 == 999) DEBUG.trace("%d:%s", i+1, ex.monkeys);
         }
         DEBUG.trace("---%n");
         long max1 = -1;
         long max2 = -1;
         for (Monkey m : ex.monkeys) {
-            DEBUG.trace("[%d,%d] Monkey %d inspected items %d times.%n", max1, max2, m.id, m.inspected);
+            DEBUG.trace("[%d,%d] Monkey %d inspected items %d times.", max1, max2, m.id, m.inspected);
             if (max1 < m.inspected) {
                 if (max2 < max1) max2 = max1;
                 max1 = m.inspected;
