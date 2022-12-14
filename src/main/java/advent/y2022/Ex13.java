@@ -9,11 +9,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.nio.charset.Charset.defaultCharset;
+import static java.util.stream.Collectors.joining;
 
 public class Ex13 {
 	private static final Debug DEBUG = Debug.OFF;
@@ -21,20 +26,20 @@ public class Ex13 {
 	public static void main(String[] args) throws IOException, URISyntaxException {
 		URI input = Ex13.class.getResource("ex13.input.txt").toURI();
 
-		int orderedIndexesSum = 0;
+		List<Packet> packets = new ArrayList<>();
 		try (BufferedReader reader = Files.newBufferedReader(Path.of(input), defaultCharset())) {
 			String last = "";
-			int i = 1;
 			while (last != null) {
-				Region a = new Region.Array(reader.readLine(), 1);
-				Region b = new Region.Array(reader.readLine(), 1);
+				packets.add(new Packet(reader.readLine()));
+				packets.add(new Packet(reader.readLine()));
 				last = reader.readLine(); // line-feed
-				Order comparison = a.compareWith(b).result();
-				if (comparison == Order.LESS_THAN)  orderedIndexesSum += i;
-				++i;
 			}
 		}
-		System.out.println(orderedIndexesSum);
+		Packet[] sorted = packets.stream().sorted().toArray(Packet[]::new);
+		int divideBegin = -Arrays.binarySearch(sorted, new Packet("[[2]]"));
+		// add 1 to simulate other divider packet in the list
+		int divideEnd = 1 - Arrays.binarySearch(sorted, new Packet("[[6]]"));
+		System.out.printf("%d×%d=%d", divideBegin, divideEnd, divideBegin * divideEnd);
 	}
 
 	private enum Order { EQUAL, GREATER_THAN, LESS_THAN }
@@ -63,6 +68,25 @@ public class Ex13 {
 
 		default boolean is(Order o) {
 			return finished() && result().equals(o);
+		}
+	}
+
+	private record Packet(String raw) implements Comparable<Packet> {
+
+		@Override
+		public int compareTo(Packet other) {
+			Region a = new Region.Array(raw, 1);
+			Region b = new Region.Array(other.raw, 1);
+			return switch (a.compareWith(b).result()) {
+				case EQUAL -> 0;
+				case LESS_THAN -> -1;
+				case GREATER_THAN -> 1;
+			};
+		}
+
+		@Override
+		public String toString() {
+			return raw;
 		}
 	}
 
