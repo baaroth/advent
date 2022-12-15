@@ -1,6 +1,7 @@
 package advent.y2022;
 
 import advent.Debug;
+import advent.RecursionMonitor;
 import advent.Trampoline;
 
 import java.io.BufferedReader;
@@ -14,14 +15,13 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.nio.charset.Charset.defaultCharset;
-import static java.util.stream.Collectors.joining;
 
 public class Ex13 {
 	private static final Debug DEBUG = Debug.OFF;
+	private static final RecursionMonitor RECURSE = new RecursionMonitor();
 
 	public static void main(String[] args) throws IOException, URISyntaxException {
 		URI input = Ex13.class.getResource("ex13.input.txt").toURI();
@@ -39,14 +39,16 @@ public class Ex13 {
 		int divideBegin = -Arrays.binarySearch(sorted, new Packet("[[2]]"));
 		// add 1 to simulate other divider packet in the list
 		int divideEnd = 1 - Arrays.binarySearch(sorted, new Packet("[[6]]"));
-		System.out.printf("%d×%d=%d", divideBegin, divideEnd, divideBegin * divideEnd);
+		System.out.printf("%d×%d=%d in %d max recursions", divideBegin, divideEnd, divideBegin * divideEnd, RECURSE.max());
 	}
 
 	private enum Order { EQUAL, GREATER_THAN, LESS_THAN }
 
 	private interface BouncyOrder extends Trampoline<Order> {
 		static BouncyOrder stable(Order o) { return () -> o; }
-		static BouncyOrder unstable(Trampoline<Trampoline<Order>> eval) {
+		static BouncyOrder unstable(Region a, Region b) {
+			DEBUG.trace("  %s vs. %s", a, b);
+			Trampoline<Trampoline<Order>> eval = () -> a.compareWith(b);
 			return new BouncyOrder() {
 				@Override
 				public Trampoline<Order> bounce() { return eval.result(); }
@@ -66,22 +68,32 @@ public class Ex13 {
 			};
 		}
 
-		default boolean is(Order o) {
-			return finished() && result().equals(o);
+		default boolean isTie() {
+			return finished() && result().equals(Order.EQUAL);
 		}
 	}
 
-	private record Packet(String raw) implements Comparable<Packet> {
+	private interface LazyOrdered<T extends LazyOrdered<T>> {
+		BouncyOrder compareWith(T other);
+	}
+
+	private record Packet(String raw) implements Comparable<Packet>, LazyOrdered<Packet> {
 
 		@Override
 		public int compareTo(Packet other) {
-			Region a = new Region.Array(raw, 1);
-			Region b = new Region.Array(other.raw, 1);
-			return switch (a.compareWith(b).result()) {
+			return switch (compareWith(other).result()) {
 				case EQUAL -> 0;
 				case LESS_THAN -> -1;
 				case GREATER_THAN -> 1;
 			};
+		}
+
+		@Override
+		public BouncyOrder compareWith(Packet other) {
+			DEBUG.trace("compare %s%n   with %s", this, other);
+			Region a = new Region.Array(raw);
+			Region b = new Region.Array(other.raw);
+			return a.compareWith(b);
 		}
 
 		@Override
@@ -90,87 +102,96 @@ public class Ex13 {
 		}
 	}
 
-	private sealed interface Region {
-		BouncyOrder compareWith(Region other);
+	private sealed interface Region extends LazyOrdered<Region> {
 		int end();
 
 		final class Array implements Region, Iterator<Region> {
+			private final Array parent;
 			private final String orig;
 			private final int start, end;
-			private int current, next;
+			private int cursor;
 
-			public Array(String orig, int start) {
+			public Array(String orig) {
 				this.orig = orig;
-				this.start = start;
-				current = start - 1;
-				next = start;
+				this.start = 1;
+				cursor = 1;
 				end = findEnd(orig, start);
+				parent = null;
+			}
+			Array(Num single) {
+				orig = "{%d]".formatted(single.val); // open as curly brace to recognize pretended array is logs
+				start = 1;
+				cursor = 1;
+				end = orig.length() - 1;
+				parent = single.parent;
 			}
 			private Array(Array parent) {
 				this.orig = parent.orig;
-				this.start = parent.next + 1;
-				current = parent.next;
-				next = start;
+				this.start = parent.cursor + 1;
+				this.parent = parent;
+				cursor = start;
 				end = findEnd(orig, this.start);
 			}
 
 			@Override
 			public BouncyOrder compareWith(Region other) {
-				DEBUG.trace("compare %s vs %s", this, other);
+				RECURSE.in();
 				Array otherArr = asArray(other);
 				while (hasNext() && otherArr.hasNext()) {
 					BouncyOrder cmp = compareNext(otherArr);
-					if (!cmp.is(Order.EQUAL)) {
-						return cmp;
+					if (!cmp.isTie()) {
+						return RECURSE.out(cmp);
 					}
 				}
 				if (hasNext()) {
-					return BouncyOrder.stable(Order.GREATER_THAN); // they exhausted before us
+					DEBUG.trace("  >");
+					return RECURSE.out(BouncyOrder.stable(Order.GREATER_THAN)); // they exhausted before us
 				} else if (otherArr.hasNext()) {
-					return BouncyOrder.stable(Order.LESS_THAN); // we exhausted first
+					DEBUG.trace("  <");
+					return RECURSE.out(BouncyOrder.stable(Order.LESS_THAN)); // we exhausted first
+				} else if (parent != null) {
+					return RECURSE.out(BouncyOrder.unstable(parent, otherArr.parent)); // exhausted together, break tie with parent
 				} else {
-					return BouncyOrder.stable(Order.EQUAL);// both exhausted at the same time
+					DEBUG.trace("  =");
+					return RECURSE.out(BouncyOrder.stable(Order.EQUAL)); // truly tied
 				}
 			}
 
 			private BouncyOrder compareNext(Array other) {
-				BouncyOrder comparison = next().compareWith(other.next());
-				if (comparison.is(Order.LESS_THAN)) {
-					DEBUG.trace("%s%n%s%n<<", this, other);
-				} else if (comparison.is(Order.GREATER_THAN)) {
-					DEBUG.trace("%s%n%s%n>>", this, other);
-				}
-				return comparison;
+				Region a = next();
+				Region b = other.next();
+				return a instanceof Array
+						? BouncyOrder.unstable(a, b)
+						: a.compareWith(b); // allow single-depth recursion
 			}
 
 			@Override
 			public int end() { return end; }
 
 			@Override
-			public boolean hasNext() { return next < end; }
+			public boolean hasNext() { return cursor < end; }
 
 			@Override
 			public Region next() {
 				if (!hasNext()) throw new NoSuchElementException("exhausted region");
-				Region nextRegion = nested() ? new Array(this) : new Num(this, next);
-				current = next;
-				next = nextRegion.end() + 1;
-				if (next < end && orig.charAt(next) == ',') ++next;
+				Region nextRegion = nested() ? new Array(this) : new Num(this, cursor);
+				cursor = nextRegion.end() + 1;
+				if (cursor < end && orig.charAt(cursor) == ',') ++cursor;
 				return nextRegion;
 			}
 
 			@Override
 			public String toString() {
 				StringBuilder s = new StringBuilder();
-				s.append(orig, start - 1, current);
-				s.append('→');
-				s.append(orig, current, end + 1);
+				s.append(orig, start - 1, cursor);
+				s.append('↓');
+				s.append(orig, cursor, end + 1);
 				return s.toString();
 			}
 
 			private static Array asArray(Region other) {
 				if (other instanceof Array arr) return arr;
-				else if (other instanceof Num num) return num.pretendArray();
+				else if (other instanceof Num num) return new Array(num);
 				throw new UnsupportedOperationException("not arrayable " + other.getClass());
 			}
 
@@ -187,39 +208,39 @@ public class Ex13 {
 			}
 
 			private boolean nested() {
-				return orig.charAt(next) == '[';
+				return orig.charAt(cursor) == '[';
 			}
 		}
 
 		final class Num implements Region {
+			private final Array parent;
 			private final int val, end;
 
 			public Num(Array parent, int start) {
 				int comma = parent.orig.indexOf(',', start);
 				this.end = comma < 0 || comma > parent.end ? parent.end : comma;
+				this.parent = parent;
 				val = Integer.parseInt(parent.orig.substring(start, end));
+			}
+
+			@Override
+			public BouncyOrder compareWith(Region other) {
+				if (other instanceof Num num) {
+					return BouncyOrder.stable(compareNums(num));
+				}
+				if (other instanceof Array arr) {
+					return BouncyOrder.unstable(new Array(this), arr);
+				}
+				throw new UnsupportedOperationException("comparing " + other.getClass());
 			}
 
 			@Override
 			public int end() { return end; }
 
-			@Override
-			public BouncyOrder compareWith(Region other) {
-				if (other instanceof Num num) {
-					final Order order;
-					if (val < num.val) order = Order.LESS_THAN;
-					else if (val == num.val) order = Order.EQUAL;
-					else order = Order.GREATER_THAN;
-					return BouncyOrder.stable(order);
-				}
-				if (other instanceof Array arr) {
-					return BouncyOrder.unstable(() -> pretendArray().compareWith(arr));
-				}
-				throw new UnsupportedOperationException("comparing " + other.getClass());
-			}
-
-			public Array pretendArray() {
-				return new Array("[%d]".formatted(val), 1);
+			private Order compareNums(Num num) {
+				if (val < num.val) return Order.LESS_THAN;
+				else if (val == num.val) return Order.EQUAL;
+				else return Order.GREATER_THAN;
 			}
 
 			@Override
