@@ -225,13 +225,14 @@ public class Ex13 {
 
 			@Override
 			public BouncyOrder compareWith(Region other) {
+				RECURSE.in();
 				if (other instanceof Num num) {
-					return BouncyOrder.stable(compareNums(num));
+					return RECURSE.out(BouncyOrder.stable(compareNums(num)));
 				}
 				if (other instanceof Array arr) {
-					return BouncyOrder.unstable(new Array(this), arr);
+					return RECURSE.out(BouncyOrder.unstable(new Array(this), arr));
 				}
-				throw new UnsupportedOperationException("comparing " + other.getClass());
+				throw RECURSE.out(new UnsupportedOperationException("comparing " + other.getClass()));
 			}
 
 			@Override
