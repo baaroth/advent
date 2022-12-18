@@ -81,17 +81,12 @@ public class Ex9 {
         private boolean stable(Coor tail) {
             return Math.abs(x - tail.x) <= 1 && Math.abs(y - tail.y) <= 1;
         }
-        private Coor up() {
-            return new Coor(x, y + 1);
-        }
-        private Coor down() {
-            return new Coor(x, y - 1);
-        }
-        private Coor left() {
-            return new Coor(x - 1, y);
-        }
-        private Coor right() {
-            return new Coor(x + 1, y);
-        }
+
+        private Coor up()    { return new Coor(x, y + 1); }
+        private Coor down()  { return new Coor(x, y - 1); }
+        private Coor left()  { return new Coor(x - 1, y); }
+        private Coor right() { return new Coor(x + 1, y); }
+        @Override
+        public String toString() { return "(%d,%d)".formatted(x, y); }
     }
 }
