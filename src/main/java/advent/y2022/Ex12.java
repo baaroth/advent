@@ -1,6 +1,8 @@
 package advent.y2022;
 
+import advent.Coor;
 import advent.Debug;
+import advent.Walk;
 
 import java.io.IOException;
 import java.net.URI;
@@ -10,7 +12,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.IntSummaryStatistics;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
@@ -18,8 +19,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.joining;
 
 public class Ex12 {
 
@@ -68,7 +67,7 @@ public class Ex12 {
 			//DEBUG.trace("%s can go %s", walk, eligibleArrivals);
 			if (eligibleArrivals.isEmpty()) {
 				DEBUG.lifePulse();
-				deadEnds.addAll(walk.steps);
+				walk.forEachStep(deadEnds::add);
 				return List.of();
 			}
 			if (eligibleArrivals.size() == 1) {
@@ -97,22 +96,22 @@ public class Ex12 {
 		}
 
 		private Optional<Coor> tryDown() {
-			if (current.y == grid.maxY()) return Optional.empty(); // border
+			if (current.y() == 0) return Optional.empty(); // border
 			return eval(current.down());
 		}
 
 		private Optional<Coor> tryLeft() {
-			if (current.x == 0) return Optional.empty(); // border
+			if (current.x() == 0) return Optional.empty(); // border
 			return eval(current.left());
 		}
 
 		private Optional<Coor> tryRight() {
-			if (current.x == grid.maxX()) return Optional.empty(); // border
+			if (current.x() == grid.maxX()) return Optional.empty(); // border
 			return eval(current.right());
 		}
 
 		private Optional<Coor> tryUp() {
-			if (current.y == 0) return Optional.empty(); // border
+			if (current.y() == grid.maxY()) return Optional.empty(); // border
 			return eval(current.up());
 		}
 
@@ -159,35 +158,6 @@ public class Ex12 {
 		public int size() {
 			return inner.size();
 		}
-	}
-
-	private static class Walk {
-
-		private final List<Coor> steps;
-		public Walk(Coor first) {
-			steps = new ArrayList<>();
-			steps.add(first);
-		}
-		public Walk(Walk start, Coor next) {
-			steps = new ArrayList<>(start.steps);
-			save(next);
-		}
-
-		public boolean contains(Coor c) { return steps.contains(c); }
-		public Coor last() { return steps.get(steps.size() - 1); }
-		/** Starting pos. is memorized (see {@link Walker#eval(Coor)}) but does not count. */
-		public int length() { return steps.size() - 1; }
-		@Override
-		public String toString() {
-			return steps.stream().map(Coor::toString).collect(joining("→"));
-		}
-		public String treePrint() {
-			if (steps.size() == 1) return steps.get(0).toString();
-			int last = steps.size() - 1;
-			String pad = "  ".repeat(last);
-			return "%s→%s".formatted(pad, steps.get(last));
-		}
-		public final void save(Coor next) { steps.add(next); }
 	}
 
 	private static class Grid {
@@ -273,16 +243,5 @@ public class Ex12 {
 			INFO.trace("%s: %d", start, min.orElse(-1));
 			return min;
 		}
-	}
-
-	private record Coor(int x, int y) {
-		@Override
-		public String toString() {
-			return "(%d,%d)".formatted(x, y);
-		}
-		private Coor up() { return new Coor(x, y - 1); }
-		private Coor down() { return new Coor(x, y + 1); }
-		private Coor left() { return new Coor(x - 1, y); }
-		private Coor right() { return new Coor(x + 1, y); }
 	}
 }
