@@ -60,7 +60,6 @@ public class Ex17 {
                     else INFO.lifePulse();
                 }
                 s = g.next();
-                //DEBUG.trace("spawn at %d%n%s", v.ticked(), a.plot(s, 20));
             }
         }
         System.out.printf("high=%s%n%s", a.highest, a.print(20));
@@ -633,7 +632,7 @@ public class Ex17 {
                 '>', Direction.RIGHT,
                 '<', Direction.LEFT
         );
-        private int ticks = 0;
+        private int idx = 0;
         private final String pushes;
         public Vent(String pushes) {
             this.pushes = pushes;
@@ -644,13 +643,9 @@ public class Ex17 {
             if (d.test(s, a)) d.accept(s);
         }
 
-        public int ticked() {
-            return ticks;
-        }
-
         private Direction nextPush() {
-            Direction d = directions.get(pushes.charAt(ticks % pushes.length()));
-            ++ticks;
+            Direction d = directions.get(pushes.charAt(idx));
+            idx = (idx + 1) % pushes.length();
             return d;
         }
     }
