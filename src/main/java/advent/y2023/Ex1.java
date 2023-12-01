@@ -41,18 +41,17 @@ public class Ex1 implements Consumer<String> {
     @Override
     public void accept(String cal) {
         int[] digits = { -1, 0 };
-        int[] i = {0};
-        while (i[0] < cal.length()) {
+        for (int i = 0; i < cal.length(); ++i) {
+            final int from = i;
             VALS.stream()
-                    .filter(v -> cal.startsWith(v.raw, i[0]))
+                    .filter(v -> cal.startsWith(v.raw, from))
                     .findFirst()
-                    .ifPresentOrElse(v -> {
+                    .ifPresent(v -> {
                         digits[1] = v.val;
                         if (digits[0] < 0) {
                             digits[0] = digits[1];
                         }
-                        i[0] += v.len();
-                    }, () -> ++i[0]);
+                    });
         }
 
         sum += digits[0] * 10 + digits[1];
