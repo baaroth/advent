@@ -5,24 +5,55 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.IntSummaryStatistics;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class Ex1 implements Consumer<String> {
     private int sum = 0;
 
+    private static final List<Digit> VALS = List.of(
+            new Digit("1", 1),
+            new Digit("one", 1),
+            new Digit("2", 2),
+            new Digit("two", 2),
+            new Digit("3", 3),
+            new Digit("three", 3),
+            new Digit("4", 4),
+            new Digit("four", 4),
+            new Digit("5", 5),
+            new Digit("five", 5),
+            new Digit("6", 6),
+            new Digit("six", 6),
+            new Digit("7", 7),
+            new Digit("seven", 7),
+            new Digit("8", 8),
+            new Digit("eight", 8),
+            new Digit("9", 9),
+            new Digit("nine", 9)
+    );
+
+    record Digit(String raw, int val) {
+        int len() {
+            return raw.length();
+        }
+    }
+
     @Override
     public void accept(String cal) {
         int[] digits = { -1, 0 };
-        cal.chars().forEach(c -> {
-            if (c >= '0' && c <= '9') {
-                digits[1] = Character.digit(c, 10);
-                if (digits[0] < 0) {
-                    digits[0] = digits[1];
-                }
-            }
-        });
+        int[] i = {0};
+        while (i[0] < cal.length()) {
+            VALS.stream()
+                    .filter(v -> cal.startsWith(v.raw, i[0]))
+                    .findFirst()
+                    .ifPresentOrElse(v -> {
+                        digits[1] = v.val;
+                        if (digits[0] < 0) {
+                            digits[0] = digits[1];
+                        }
+                        i[0] += v.len();
+                    }, () -> ++i[0]);
+        }
 
         sum += digits[0] * 10 + digits[1];
     }
