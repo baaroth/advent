@@ -33,11 +33,41 @@ public class Ex2  implements Consumer<String> {
             p = Pattern.compile("(\\d+) " + name().toLowerCase());
         }
 
-        public boolean test(String draw) {
+        public int count(String draw) {
             Matcher m = p.matcher(draw);
-            int shown = m.find() ? Integer.parseInt(m.group(1)) : 0;
+            return m.find() ? Integer.parseInt(m.group(1)) : 0;
+        }
+        public boolean test(String draw) {
+            int shown = count(draw);
             DEBUG.trace("- draw %d %s", shown, name());
             return shown <= limit;
+        }
+    }
+
+    private static class AtLeast {
+        private int val;
+
+        void update(int challenge) {
+            if (val < challenge) {
+                val = challenge;
+            }
+        }
+    }
+
+    private static class Mins implements Consumer<String> {
+        private final AtLeast reds = new AtLeast();
+        private final AtLeast greens = new AtLeast();
+        private final AtLeast blues = new AtLeast();
+
+        @Override
+        public void accept(String draw) {
+            reds.update(Cube.RED.count(draw));
+            greens.update(Cube.GREEN.count(draw));
+            blues.update(Cube.BLUE.count(draw));
+        }
+
+        int power() {
+            return reds.val * greens.val * blues.val;
         }
     }
 
@@ -46,11 +76,12 @@ public class Ex2  implements Consumer<String> {
         Matcher m = FMT.matcher(game);
         if (m.matches()) {
             int id = Integer.parseInt(m.group(1));
+            Mins updateMins = new Mins();
             String[] draws = m.group(2).split(";");
-            DEBUG.trace("%ngame #%d", id);
-            if (Arrays.stream(draws).allMatch(draw -> cubes.stream().allMatch(c -> c.test(draw)))) {
-                sum += id;
-            }
+            Arrays.stream(draws).forEach(updateMins);
+            int power = updateMins.power();
+            DEBUG.trace("game #%d: %d", id, power);
+            sum += power;
         }
     }
 
