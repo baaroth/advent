@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,11 +19,12 @@ import static java.lang.Math.abs;
 public class Ex3   implements Consumer<String> {
     private static final Debug DEBUG = Debug.OFF;
     private static final Pattern NUM = Pattern.compile("(\\d+)");
-    private static final Pattern SYM = Pattern.compile("[^0-9.]");
+    private static final Pattern GEAR = Pattern.compile("\\*");
 
     private int sum = 0;
+    private List<Pos> previousGears = List.of();
     private List<PartNum> previousParts = List.of();
-    private List<Pos> previousSymbols = List.of();
+    private List<PartNum> previousParts2 = List.of();
 
     record Pos(int start, int end) {
         Pos(Matcher m) {
@@ -59,50 +61,45 @@ public class Ex3   implements Consumer<String> {
 
     @Override
     public void accept(String line) {
-        List<Pos> symbols = findSymbols(line);
-        previousParts = handleParts(line, symbols);
-        previousSymbols = symbols;
+        List<Pos> gears = find(GEAR, line, Pos::new);
+        List<PartNum> parts = find(NUM, line, PartNum::new);
+        handleGears(parts);
+        // memorize for next line
+        previousParts2 = previousParts;
+        previousParts = parts;
+        previousGears = gears;
     }
 
-    private List<PartNum> handleParts(String line, List<Pos> symbols) {
-        Matcher mNum = NUM.matcher(line);
-        List<PartNum> unaffected = new ArrayList<>();
-
+    private void handleGears(List<PartNum> parts) {
         DEBUG.trace("---");
-        while (mNum.find()) {
-            PartNum p = new PartNum(mNum);
-            if (symbols.stream().anyMatch(p::touches)
-                    || previousSymbols.stream().anyMatch(p::touches)) {
-                DEBUG.trace("%s", p);
-                sum += p.val();
-            } else {
-                DEBUG.trace("¬%s", p);
-                unaffected.add(p);
-            }
-        }
+        List<PartNum> partsWindow = new ArrayList<>(previousParts2);
+        partsWindow.addAll(previousParts);
+        partsWindow.addAll(parts);
 
-        for (PartNum previous : previousParts) {
-            if (symbols.stream().anyMatch(previous::touches)) {
-                DEBUG.trace("%s", previous);
-                sum += previous.val();
+        for (Pos gear : previousGears) {
+            List<PartNum> touching = partsWindow.stream().filter(p -> p.touches(gear)).toList();
+            if (touching.size() == 2) {
+                int ratio = touching.get(0).val() * touching.get(1).val();
+                DEBUG.trace("%s → %d", touching, ratio);
+                sum += ratio;
             }
         }
-        return unaffected;
     }
 
-    private List<Pos> findSymbols(String line) {
-        List<Pos> symbols = new ArrayList<>();
-        Matcher m = SYM.matcher(line);
+    private <O> List<O> find(Pattern p, String line, Function<Matcher, O> mapper) {
+        List<O> out = new ArrayList<>();
+        Matcher m = p.matcher(line);
         while (m.find()) {
-            symbols.add(new Pos(m));
+            out.add(mapper.apply(m));
         }
-        return symbols;
+        return out;
     }
 
     public static void main(String[] args) throws IOException, URISyntaxException {
         Ex3 consumer = new Ex3();
         URI input = consumer.getClass().getResource("ex3.input.txt").toURI();
         Files.readAllLines(Path.of(input)).forEach(consumer);
+        consumer.handleGears(List.of()); // simule une ligne vide pour gérer les engrenages de la dernière ligne du fichier
         System.out.println(consumer.sum);
     }
 }
