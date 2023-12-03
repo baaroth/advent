@@ -8,7 +8,6 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -19,7 +18,6 @@ public class Ex2  implements Consumer<String> {
     private static final Pattern FMT = Pattern.compile("^Game (\\d+): (.+)$");
 
     private int sum = 0;
-    private List<Cube> cubes = List.of(Cube.values());
 
     private enum Cube implements Predicate<String> {
         RED(12),
