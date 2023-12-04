@@ -13,25 +13,64 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
+import static java.util.stream.Collectors.joining;
+
 public class Ex4 implements Consumer<String> {
     private static final Debug DEBUG = Debug.OFF;
     private static final Pattern FMT = Pattern.compile("^Card +(\\d+): ([^|]+)\\|(.+)$");
     private long sum = 0;
     private int[] winning;
+    private final Gains gains = new Gains();
+
+    private static class Gains {
+        private int capacity = 10;
+        private int[] values = new int[capacity];
+
+        void inc(int val, int size) {
+            if (size > capacity) {
+                DEBUG.trace("resize %d→%d", capacity, size);
+                int[] bigger = new int[size];
+                for (int i = 0; i < capacity; ++i) {
+                    bigger[i] = values[i] + val;
+                }
+                Arrays.fill(bigger, capacity, size, val);
+                values = bigger;
+                capacity = size;
+            } else {
+                for (int i = 0; i < size; ++i) {
+                    values[i] += val;
+                }
+            }
+        }
+
+        int shift() {
+            int val = values[0];
+            if (val != 0) {
+                System.arraycopy(values, 1, values, 0, capacity - 1);
+                values[capacity - 1] = 0;
+            }
+            return val;
+        }
+
+        @Override
+        public String toString() {
+            return Arrays.stream(values)
+                    .mapToObj(String::valueOf)
+                    .collect(joining(",", "[", "]"));
+        }
+    }
 
     @Override
-    public void accept(String card) {
-        Matcher m = FMT.matcher(card);
+    public void accept(String game) {
+        Matcher m = FMT.matcher(game);
         if (m.matches()) {
+            int weight = 1 + gains.shift();
             int id = Integer.parseInt(m.group(1));
             winning = toInts(m.group(2)).toArray();
             long wins = toInts(m.group(3)).filter(this::isWin).count();
-            DEBUG.trace("%d: %d wins", id, wins);
-            if (wins > 0) {
-                long val = (long) Math.pow(2, wins - 1);
-                DEBUG.trace("  → %d pts", val);
-                sum += val;
-            }
+            gains.inc(weight, (int) wins);
+            DEBUG.trace("card #%d: %d, %d wins → %s", id, weight, wins, gains);
+            sum += weight;
         }
     }
 
