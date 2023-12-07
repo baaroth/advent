@@ -10,9 +10,9 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,22 +26,38 @@ public class Ex5 {
     private static final Debug DEBUG = Debug.OFF;
     private Function<BigInt, BigInt> indirect = UnaryOperator.identity();
 
+    private record SeedRange(BigInt start, BigInt len, BigInt fence) {
+        static SeedRange of(String rawStart, String rawLen) {
+            BigInt start = new BigInt(rawStart);
+            BigInt len = new BigInt(rawLen);
+            return new SeedRange(start, len, start.plus(len));
+        }
+
+        public Stream<BigInt> stream() {
+            Predicate<BigInt> hasNext = v -> v.lowerTo(fence);
+            return Stream.iterate(start, hasNext, BigInt::inc);
+        }
+    }
+
     private static class Seeds {
-        private static final Pattern FMT = Pattern.compile("^seeds: ([0-9 ]+)$");
-        private final List<BigInt> inner;
-        private Seeds(List<BigInt> inner) {
+        private static final Pattern FMT = Pattern.compile("([0-9]+) ([0-9]+)");
+        private final List<SeedRange> inner;
+        private Seeds(List<SeedRange> inner) {
             this.inner = inner;
         }
 
         static Seeds of(String raw) {
+            if (!raw.startsWith("seeds: ")) throw new IllegalArgumentException("bad seeds: " + raw);
             Matcher m = FMT.matcher(raw);
-            if (!m.matches()) throw new IllegalArgumentException("bad seeds: " + raw);
-            String[] parts = m.group(1).trim().split(" ");
-            return new Seeds(Arrays.stream(parts).map(BigInt::new).toList());
+            List<SeedRange> ranges = new ArrayList<>();
+            while (m.find()) {
+                ranges.add(SeedRange.of(m.group(1), m.group(2)));
+            }
+            return new Seeds(ranges);
         }
 
         Stream<BigInt> stream() {
-            return inner.stream();
+            return inner.stream().flatMap(SeedRange::stream);
         }
     }
 
@@ -124,7 +140,7 @@ public class Ex5 {
             }
         }
 
-        BigInt min = seeds.stream().map(ex.indirect).min(naturalOrder())
+        BigInt min = seeds.stream().parallel().map(ex.indirect).min(naturalOrder())
                 .orElse(BigInt.ZERO);
         System.out.println(min);
     }
